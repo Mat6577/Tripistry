@@ -15,7 +15,7 @@
      try {
           $pdo = new PDO($dsn, $user, $pass, $options);
           $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-          echo "Connected successfully";
+          // echo "Connected successfully";
           error_log("Connected successfully");
      } catch (\PDOException $e) {
           // throw new \PDOException($e->getMessage(), (int)$e->getCode());
