@@ -16,7 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (!empty($email) && !empty($password)) {
         // Securely fetch user using prepared statement to prevent SQL Injection
-        $stmt = $pdo->prepare('SELECT userId, password_hash, type FROM users WHERE email = :email');
+        $stmt = $pdo->prepare('SELECT userId, password_hash, type, country FROM users WHERE email = :email');
         $stmt->execute(['email' => $email]);
         $user = $stmt->fetch();
 
@@ -26,17 +26,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['user_id'] = $user['userId'];
             $_SESSION['userId'] = $user['userId'];
 
-            $stmt2 = $pdo->prepare('SELECT name FROM agency WHERE userID = :userid');
-            $stmt2->execute(['userid' => $user['userId']]);
-            $user2 = $stmt2->fetch();
-
-            $_SESSION['name'] = $user2['name'];
+            
             $_SESSION['role'] = strtolower($user['type']); // Store 'traveller' or 'agency'
+            $_SESSION['country'] = $user['country'];
 
             // Redirect to their respective, distinct dashboards based on role
             if ($user['type'] === 'agency') {
+                $stmt2 = $pdo->prepare('SELECT name FROM agency WHERE userID = :userid');
+                $stmt2->execute(['userid' => $user['userId']]);
+                $user2 = $stmt2->fetch();
+                $_SESSION['name'] = $user2['name'];
+
                 header('Location: agency/dashboard.php');
             } else if ($user['type'] === 'traveller') {
+                $stmt2 = $pdo->prepare('SELECT name FROM traveller WHERE userID = :userid');
+                $stmt2->execute(['userid' => $user['userId']]);
+                $user2 = $stmt2->fetch();
+
+                $_SESSION['name'] = $user2['name'];
+                
                 header('Location: traveller/dashboard.php');
             } else {
                 echo "Something went wrong :( ...";
