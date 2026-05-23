@@ -23,8 +23,8 @@ if (session_status() === PHP_SESSION_NONE) {
                         <li><a href="./agency/dashboard.php">Agency Dashboard</a></li>
                         <li><a href="./agency/create-package.php">Create Package</a></li>
                     <?php else: ?>
-                        <li><a href="./traveller/dashboard.php">Browse Packages</a></li>
-                        <li><a href="./traveller/bookings.php">My Bookings</a></li>
+                        <li><a href="dashboard.php">Browse Packages</a></li>
+                        <li><a href="bookings.php">My Bookings</a></li>
                     <?php endif; ?>
                     <li class="user-status">Logged in as: <strong><?php echo htmlspecialchars($_SESSION['name']." (".ucfirst($_SESSION['role']).")"); ?></strong></li>
                     <li><a href="logout.php" class="btn-logout">Logout</a></li>
