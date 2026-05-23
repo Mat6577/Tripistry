@@ -9,7 +9,7 @@ if (!isset($_SESSION['userId']) || $_SESSION['role'] !== 'traveller') {
 }
 
 
-$sql = "SELECT * FROM packages WHERE 1=1";
+$sql = "SELECT * FROM package WHERE 1=1";
 $params = [];
 
 // Apply filtering parameters safely if they are provided [cite: 127]
@@ -53,11 +53,11 @@ include '../components/header.php';
     <?php if (count($packages) > 0): ?>
         <?php foreach ($packages as $pkg): ?>
             <div class="package-card">
-                <h3><?php echo htmlspecialchars($pkg['title']); ?></h3>
-                <p>📍 <strong>Destination:</strong> <?php echo htmlspecialchars($pkg['destination']); ?></p>
+                <h3><?php echo htmlspecialchars($pkg['description']); ?></h3>
+                <p>📍 <strong>Destination:</strong> <?php echo htmlspecialchars($pkg['country']); ?></p>
                 <p>💵 <strong>Price:</strong> R<?php echo htmlspecialchars($pkg['price']); ?></p>
                 <p>⭐ <strong>Rating:</strong> <?php echo htmlspecialchars($pkg['average_rating'] ?? 'No reviews yet'); ?></p>
-                <a href="package-view.php?id=<?php echo $pkg['id']; ?>" class="btn">View Details</a>
+                <a href="package-view.php?id=<?php echo $pkg['packID']; ?>" class="btn">View Details</a>
             </div>
         <?php endforeach; ?>
     <?php else: ?>

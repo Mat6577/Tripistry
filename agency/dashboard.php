@@ -17,7 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $package_id = $_POST['package_id'] ?? 0;
     
     // Ensure the package strictly belongs to this agency before deleting
-    $stmt = $pdo->prepare("DELETE FROM package WHERE packageID = :id AND agencyID = :agency_id");
+    $stmt = $pdo->prepare("DELETE FROM package WHERE packID = :id AND agencyID = :agency_id");
     $stmt->execute(['id' => $package_id, 'agency_id' => $agency_id]);
     
     if ($stmt->rowCount() > 0) {
@@ -28,7 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 }
 
 // Fetch all packages curated specifically by this agency
-$stmt = $pdo->prepare("SELECT * FROM package WHERE agencyId = :agency_id ORDER BY packageID DESC");
+$stmt = $pdo->prepare("SELECT * FROM package WHERE agencyId = :agency_id ORDER BY packID DESC");
 $stmt->execute(['agency_id' => $agency_id]);
 $my_packages = $stmt->fetchAll();
 
@@ -61,13 +61,13 @@ include '../components/header.php';
         <?php if (count($my_packages) > 0): ?>
             <?php foreach ($my_packages as $pkg): ?>
                 <tr style="border-bottom: 1px solid #cbd5e1;">
-                    <td style="padding: 12px; font-weight: 600;">PACKAGE #<?php echo htmlspecialchars($pkg['packageID']); ?></td>
+                    <td style="padding: 12px; font-weight: 600;">PACKAGE #<?php echo htmlspecialchars($pkg['packID']); ?></td>
                     <td style="padding: 12px;">📍 <?php echo htmlspecialchars($pkg['country']); ?></td>
                     <td style="padding: 12px;">R<?php echo htmlspecialchars(number_format($pkg['price'], 2)); ?></td>
                     <td style="padding: 12px;"><?php echo htmlspecialchars($pkg['description']); ?> Days</td>
                     <td style="padding: 12px; text-align: center;">
                         <form action="dashboard.php" method="POST" onsubmit="return confirmDelete();" style="display:inline;">
-                            <input type="hidden" name="package_id" value="<?php echo $pkg['packageID']; ?>">
+                            <input type="hidden" name="package_id" value="<?php echo $pkg['packID']; ?>">
                             <input type="hidden" name="action" value="delete">
                             <button type="submit" style="background:#ef4444; color:white; border:none; padding: 6px 12px; border-radius:4px; cursor:pointer;">Delete</button>
                         </form>

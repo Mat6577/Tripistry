@@ -14,6 +14,10 @@ body {
     color: var(--dark-color);
 }
 
+.error-msg{
+    color: var(--error-color);
+}
+
 .navbar {
     display: flex;
     justify-content: space-between;
@@ -100,4 +104,12 @@ footer {
     background-color: var(--dark-color);
     color: white;
     margin-top: 4rem;
+}
+
+.registerLink{
+    color: #0284c7;
+}
+
+.registerLink:visited{
+    color: #0284c7;
 }

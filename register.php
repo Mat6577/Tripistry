@@ -4,29 +4,17 @@ include 'Config/db.php';
 
 $message = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $email = trim($_POST['email']);
-    $password = $_POST['password'];
     $role = $_POST['role']; // Should resolve to either 'Traveller' or 'Agency'
 
-    if (!empty($email) && !empty($password) && in_array($role, ['Traveller', 'Agency'])) {
-        // Securely hash the password string before database ingestion
-        $password_hash = password_hash($password, PASSWORD_BCRYPT);
+    if (in_array($role, ['Traveller', 'Agency'])) {
 
-        try {
-            $stmt = $pdo->prepare("INSERT INTO users (email, password, password_hash, type) VALUES (:email, :password,:password_hash, :role)");
-            $stmt->execute([
-                'email' => $email,
-                'password_hash' => $password_hash,
-                'role' => strtolower($role),
-                'password' => $password
-            ]);
-            header("Location: login.php?registration=success");
-            exit;
-        } catch (\PDOException $e) {
-            $message = "Registration failed: Account may already exist.";
-        }
+        if ($role === 'Agency') {
+            header("Location: registerAgency.php");
+        } else if ($role === 'Traveller') {
+            header("Location: registerTraveller.php");
+        } 
     } else {
-        $message = "Please complete all fields with accurate selections.";
+        $message = "Please select an account type.";
     }
 }
 include 'components/header.php';
@@ -37,19 +25,13 @@ include 'components/header.php';
         <p class="error-msg"><?php echo htmlspecialchars($message); ?></p>
     <?php endif; ?>
     <form action="register.php" method="POST">
-        <label for="email">Email Address</label>
-        <input type="email" id="email" name="email" required>
-
-        <label for="password">Password</label>
-        <input type="password" id="password" name="password" required>
-
         <label for="role">Account Type</label>
         <select id="role" name="role" required>
             <option value="Traveller">Traveller (Browse & Book)</option>
             <option value="Agency">Travel Agency (Curate & Sell)</option>
         </select>
 
-        <button type="submit" class="btn">Register</button>
+        <button type="submit" class="btn">Next Step</button>
     </form>
 </div>
 <?php include 'components/footer.php'; ?>

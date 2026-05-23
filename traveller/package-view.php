@@ -16,7 +16,7 @@ $notification = '';
 // 1. Process Booking Submissions Securely
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'book') {
     try {
-        $stmt = $pdo->prepare("INSERT INTO bookings (user_id, package_id, booking_date) VALUES (:user_id, :package_id, NOW())");
+        $stmt = $pdo->prepare("INSERT INTO booking (user_id, package_id, booking_date) VALUES (:user_id, :package_id, NOW())");
         $stmt->execute(['user_id' => $user_id, 'package_id' => $package_id]);
         $notification = "🎉 Booking successful! Your itinerary has been reserved.";
     } catch (\PDOException $e) {
@@ -42,7 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 }
 
 // 3. Fetch Package Details along with linked elements
-$stmt = $pdo->prepare("SELECT p.*, u.email as agency_email FROM packages p JOIN users u ON p.agency_id = u.id WHERE p.id = :id");
+$stmt = $pdo->prepare("SELECT p.*, u.email as agency_email FROM package p JOIN users u ON p.agencyId = u.id WHERE p.id = :id");
 $stmt->execute(['id' => $package_id]);
 $package = $stmt->fetch();
 
