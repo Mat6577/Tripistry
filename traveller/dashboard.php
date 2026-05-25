@@ -3,7 +3,7 @@ session_start();
 include '../config/db.php';
 
 // Enforce strict interface boundaries [cite: 30]
-if (!isset($_SESSION['userId']) || $_SESSION['role'] !== 'traveller') {
+if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'traveller') {
     header('Location: ../login.php?error=unauthorized');
     exit;
 }
@@ -56,7 +56,14 @@ include '../components/header.php';
                 <h3><?php echo htmlspecialchars($pkg['description']); ?></h3>
                 <p>📍 <strong>Destination:</strong> <?php echo htmlspecialchars($pkg['country']); ?></p>
                 <p>💵 <strong>Price:</strong> R<?php echo htmlspecialchars($pkg['price']); ?></p>
-                <p>⭐ <strong>Rating:</strong> <?php echo htmlspecialchars($pkg['average_rating'] ?? 'No reviews yet'); ?></p>
+                <?php 
+                    $s = $pdo->prepare('SELECT AVG(rating) as average_rating FROM review WHERE packageID = :pid;');
+                    $s->execute(['pid' => $pkg['packID']]);
+                    $result = $s->fetch();
+                    $average_rating = $result['average_rating'];
+
+                ?>
+                <p>⭐ <strong>Rating:</strong> <?php echo htmlspecialchars($average_rating === NULL? "No reviews yet" : $average_rating); ?></p>
                 <a href="package-view.php?id=<?php echo $pkg['packID']; ?>" class="btn">View Details</a>
             </div>
         <?php endforeach; ?>

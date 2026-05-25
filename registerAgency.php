@@ -11,7 +11,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!empty($_POST['address2'])) {
         $streetAddress .= ', ' . trim($_POST['address2']);
     }
-    $town = isset($_POST['town']) ? trim($_POST['town']) : '';
+    $town = isset($_POST['town']) ? trim($_POST['town']) : '-';
     $city = isset($_POST['city']) ? trim($_POST['city']) : '';
     $provinceOrState = isset($_POST['provinceOrState']) ? trim($_POST['provinceOrState']) : '';
     $country = isset($_POST['country']) ? trim($_POST['country']) : '';
@@ -52,8 +52,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'regNo' => $regNo
                 ]);
 
-                echo "<script>alert('Registration successful!');</script>";
-
+                //get rid of "-"
+                $stmnt4 = $pdo->prepare("UPDATE users SET town = NULL WHERE town = '-';");
+                $stmnt4->execute();
+                
                 header("Location: login.php?registration=success");
             } else {
                 header("Location: login.php?registration=failed");
@@ -93,8 +95,8 @@ include 'components/header.php';
         <input type="password" id="password" name="password" required>
 
         <label><b>Address</b></label>
-        <label for="address1">Address Line 1</label>
-        <input type="text" id="address1" name="address1">
+        <label for="address1">Address Line 1*</label>
+        <input type="text" id="address1" name="address1" required>
 
         <label for="address2">Address Line 2</label>
         <input type="text" id="address2" name="address2">

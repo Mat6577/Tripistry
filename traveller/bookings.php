@@ -3,14 +3,14 @@ session_start();
 include '../config/db.php';
 
 // Enforce strict access control 
-if (!isset($_SESSION['userId']) || $_SESSION['role'] !== 'traveller') {
+if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'traveller') {
     header('Location: ../login.php?error=unauthorized');
 }
 
 $user_id = $_SESSION['user_id'];
 
 // Retrieve historical data rows using secure parameterized execution queries [cite: 123, 128]
-$stmt = $pdo->prepare("SELECT b.id as booking_id, b.booking_date, p.title, p.destination, p.price FROM bookings b JOIN packages p ON b.package_id = p.id WHERE b.user_id = :uid ORDER BY b.id DESC");
+$stmt = $pdo->prepare("SELECT b.bookingID as booking_id, b.bookingDate, p.description, p.country, p.price FROM booking b JOIN package p ON b.packageId = p.packID WHERE b.travellerId = :uid ORDER BY b.bookingId DESC;");
 $stmt->execute(['uid' => $user_id]);
 $my_bookings = $stmt->fetchAll();
 

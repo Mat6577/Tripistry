@@ -11,7 +11,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!empty($_POST['address2'])) {
         $streetAddress .= ', ' . trim($_POST['address2']);
     }
-    $town = isset($_POST['town']) ? trim($_POST['town']) : '';
+    $town = isset($_POST['town']) ? trim($_POST['town']) : '-';
     $city = isset($_POST['city']) ? trim($_POST['city']) : '';
     $provinceOrState = isset($_POST['provinceOrState']) ? trim($_POST['provinceOrState']) : '';
     $country = isset($_POST['country']) ? trim($_POST['country']) : '';
@@ -24,16 +24,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } catch (Exception $e) {
         $dob = null;
     }
-    $today = new DateTime();
 
     if ($dob) {
         $dob->setTime(0, 0, 0);
+        $today = new DateTime();
+        $today->setTime(0, 0, 0);
+    
+        if ($dob > $today) {
+            $message = "Date of birth cannot be in the future.";
+        }
     }
-    $today->setTime(0, 0, 0);
 
-    if ($dob && $dob > $today) {
-        $message = "Date of birth cannot be in the future.";
-    }
 
     if (empty($email) || empty($password) || empty($city) || empty($provinceOrState) || empty($country) || empty($name) || empty($surname) || empty($idNumber) || empty($dob)) {
         if (empty($message)) {
@@ -64,7 +65,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $user = $stmt2->fetch();
 
             if ($user) {
-                $stmt3 = $pdo->prepare("INSERT INTO traveller (userID, name, surname, idNumber, dateOfBirth) VALUES (:userId, :name, :surname, :idNumber, :dob)");
+                $stmt3 = $pdo->prepare("INSERT INTO traveller (userID, name, surname, idNumber, dateOfBirth) VALUES (:userId, :name, :surname, :idNumber, :dob);");
                 $stmt3->execute([
                     'userId' => $user['userId'],
                     'name' => $name,
@@ -72,7 +73,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'idNumber' => $idNumber,
                     'dob' => $dob ? $dob->format('Y-m-d') : null
                 ]);
-                echo "<script>alert('Registration successful!');</script>";
+
+                //get rid of "-"
+                $stmnt4 = $pdo->prepare("UPDATE users SET town = NULL WHERE town = '-';");
+                $stmnt4->execute();                
 
                 header("Location: login.php?registration=success");
             } else {
@@ -118,9 +122,9 @@ include 'components/header.php';
         <label for="password">Password*</label>
         <input type="password" id="password" name="password" required>
 
-        <label><b>Address</b></label>
-        <label for="address1">Address Line 1</label>
-        <input type="text" id="address1" name="address1">
+        <label><b>Address (for billing statements and contracts)</b></label>
+        <label for="address1">Address Line 1*</label>
+        <input type="text" id="address1" name="address1" required>
 
         <label for="address2">Address Line 2</label>
         <input type="text" id="address2" name="address2">

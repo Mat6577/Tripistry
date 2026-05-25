@@ -4,9 +4,17 @@ session_start();
 include 'Config/db.php';
 include 'components/header.php';
 
+if (isset($_SESSION['user_id'])){       //logout user
+    session_destroy();
+}
+
 $error_message = '';
 if (isset($_GET['error']) && $_GET['error'] === 'unauthorized') {
     $error_message = 'Unauthorized access. Please log in with the correct account type.';
+}
+
+if( isset($_GET['registration']) && $_GET['registration'] === "success"){
+    echo "<script>alert('Registration successful!');</script>";
 }
 
 // 2. Check if the user is submitting the form (POST request)
@@ -24,9 +32,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($user && password_verify($password, $user['password_hash'])) {
             error_log('logged in');
             $_SESSION['user_id'] = $user['userId'];
-            $_SESSION['userId'] = $user['userId'];
-
-            
             $_SESSION['role'] = strtolower($user['type']); // Store 'traveller' or 'agency'
             $_SESSION['country'] = $user['country'];
 

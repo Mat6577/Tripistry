@@ -4,7 +4,7 @@ session_start();
 include '../config/db.php';
 
 // Enforce strict Traveller role access check 
-if (!isset($_SESSION['userId']) || $_SESSION['role'] !== 'traveller') {
+if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'traveller') {
     header('Location: ../login.php?error=unauthorized');
     exit;
 }
@@ -30,19 +30,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $comment = trim($_POST['comment']);
     
     if ($rating >= 1 && $rating <= 5 && !empty($comment)) {
-        $stmt = $pdo->prepare("INSERT INTO reviews (user_id, package_id, rating, comment, created_at) VALUES (:user_id, :package_id, :rating, :comment, NOW())");
+        $stmt = $pdo->prepare("INSERT INTO reviews (userID, packageID, rating, comment) VALUES (:user_id, :package_id, :rating, :comment)");
         $stmt->execute(['user_id' => $user_id, 'package_id' => $package_id, 'rating' => $rating, 'comment' => $comment]);
         
-        // Recalculate average rating metadata field on packages table
-        $updateRating = $pdo->prepare("UPDATE packages SET average_rating = (SELECT AVG(rating) FROM reviews WHERE package_id = :pid) WHERE id = :pid");
-        $updateRating->execute(['pid' => $package_id]);
+        // // Recalculate average rating metadata field on packages table
+        // $updateRating = $pdo->prepare("UPDATE package SET average_rating = (SELECT AVG(rating) FROM review WHERE packID = :pid) WHERE id = :pid");
+        // $updateRating->execute(['pid' => $package_id]);
+
+        //RATHER LEAVE THIS CALCULATED
         
         $notification = "Thank you! Your feedback has been added.";
     }
 }
 
 // 3. Fetch Package Details along with linked elements
-$stmt = $pdo->prepare("SELECT p.*, u.email as agency_email FROM package p JOIN users u ON p.agencyId = u.id WHERE p.id = :id");
+$stmt = $pdo->prepare("SELECT p.*, u.email as agency_email FROM package p JOIN users u ON p.agencyID = u.userId WHERE p.packID = :id");
 $stmt->execute(['id' => $package_id]);
 $package = $stmt->fetch();
 
@@ -51,12 +53,16 @@ if (!$package) {
 }
 
 // Fetch user reviews associated with this package
-$reviewStmt = $pdo->prepare("SELECT r.*, u.email FROM reviews r JOIN users u ON r.user_id = u.id WHERE r.package_id = :pid ORDER BY r.created_at DESC");
+$reviewStmt = $pdo->prepare("SELECT * from review WHERE packageID = :pid");
+// $reviewStmt = $pdo->prepare("SELECT r.*, p.agencyID FROM review r JOIN package p ON r.userID = p.packID WHERE r.packageID = :pid ORDER BY r.reviewDate DESC");
 $reviewStmt->execute(['pid' => $package_id]);
 $reviews = $reviewStmt->fetchAll();
 
 include '../components/header.php';
 ?>
+
+<script src="scriptInsight.js"></script>
+
 
 <div class="package-view-container" style="background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
     <?php if (!empty($notification)): ?>
@@ -68,34 +74,51 @@ include '../components/header.php';
     <div class="package-banner" style="margin-bottom: 25px;">
         <?php 
             // Fallback to a placeholder image if the column value happens to be empty
-            $imgSrc = !empty($package['image_path']) ? $package['image_path'] : 'public/img/package-placeholder.jpg'; 
+            $imgSrc = !empty($package['image_path']) ? $package['image_path'] : 'public/img/package-placeholder.png'; 
         ?>
         <img src="../<?php echo htmlspecialchars($imgSrc); ?>" 
-             alt="<?php echo htmlspecialchars($package['title']); ?> Presentation Image" 
+             alt="<?php echo htmlspecialchars($package['description']); ?> Presentation Image" 
              style="width: 100%; max-height: 380px; object-fit: cover; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
     </div>
 
-    <h2><?php echo htmlspecialchars($package['title']); ?></h2>
-    <p style="font-size: 1.2rem; color: #0284c7;">📍 Destination: <strong><?php echo htmlspecialchars($package['destination']); ?></strong></p>
+    <h2><?php echo htmlspecialchars($package['description']); ?></h2>
+    <p style="font-size: 1.2rem; color: #0284c7;">📍 Destination: <strong><?php echo htmlspecialchars($package['country']); ?></strong></p>
     <p>Organized by: ✉️ <em><?php echo htmlspecialchars($package['agency_email']); ?></em></p>
 
     <div class="itinerary-details" style="margin: 25px 0; padding: 20px; background: #f8fafc; border-left: 4px solid #0284c7;">
         <h3>📋 Included Trip Architecture</h3>
         <p>✈️ <strong>Flight Segment:</strong> Standard Economy Return (Linked Dataset Allocation)</p>
-        <p>🏨 <strong>Accommodation:</strong> Premium Partner Stay (<?php echo htmlspecialchars($package['duration']); ?> Nights)</p>
+        <p>🏨 <strong>Accommodation:</strong> Premium Partner Stay (<?php echo htmlspecialchars($package['duration']); echo $package['duration']>1?" Nights":" Night"; ?>)</p>
         <p>🍽️ <strong>Catering Context:</strong> Verified Top Attractions & Local Restaurant Vouchers</p>
         <p style="font-size: 1.5rem; margin-top:15px;">Cost Summary: <strong style="color:#0284c7;">R<?php echo htmlspecialchars(number_format($package['price'], 2)); ?></strong></p>
         
-        <form action="package-view.php?id=<?php echo $package['id']; ?>" method="POST" onsubmit="return confirmBooking();">
+        <form action="package-view.php?id=<?php echo $package['packID']; ?>" method="POST" onsubmit="return confirmBooking();">
             <input type="hidden" name="action" value="book">
             <button type="submit" class="btn" style="font-size:1.1rem; padding: 10px 20px;">Book This Trip Now</button>
         </form>
     </div>
 
+    <div>
+        <h3>Location Insights (Powered by AI) ❇️</h3>
+        
+        <div id="insights" style="background: #f1f5f9; padding: 15px; border-radius: 6px; margin-bottom: 25px;">
+            loading insights...
+            <?php 
+            $origin = $_SESSION['country'];
+            $to = $package['country'];
+
+            // Echoing the JavaScript function call
+            echo "<script type='text/javascript'>
+                generateResponse('$origin', '$to');
+            </script>";
+            ?>
+        </div>
+    </div>
+
     <div class="reviews-section" style="margin-top: 40px;">
         <h3>User Feedback & Ratings (⭐ <?php echo htmlspecialchars(number_format($package['average_rating'] ?? 0, 1)); ?>/5)</h3>
         
-        <form action="package-view.php?id=<?php echo $package['id']; ?>" method="POST" style="background: #f1f5f9; padding: 15px; border-radius: 6px; margin-bottom: 25px;">
+        <form action="package-view.php?id=<?php echo $package['packID']; ?>" method="POST" style="background: #f1f5f9; padding: 15px; border-radius: 6px; margin-bottom: 25px;">
             <input type="hidden" name="action" value="review">
             <label for="rating">Your Score:</label>
             <select name="rating" id="rating" style="width: auto; display: inline-block; margin-left: 10px;" required>
