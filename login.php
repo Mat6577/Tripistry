@@ -70,7 +70,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <title>Tripistry - Login</title>
-    <link rel="stylesheet" href="public/css/styles.css">
+    <link rel="stylesheet" href="css/login.css">
 </head>
 <body>
 

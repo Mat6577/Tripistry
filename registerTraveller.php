@@ -94,6 +94,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 include 'components/header.php';
 ?>
+    <head>
+        <link rel="stylesheet" href="/Tripistry-main/css/register.css"
+    </head>
 <div class="form-card">
     <h2>Create your Tripistry Account</h2>
     <?php if (!empty($message)): ?>
