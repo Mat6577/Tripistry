@@ -1,4 +1,6 @@
 <?php
+// Config/db.php
+
 $host = 'wheatley.cs.up.ac.za';
 $db   = 'u25176502_tripistry';
 $user = 'u25176502'; 

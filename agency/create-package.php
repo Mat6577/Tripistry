@@ -1,6 +1,6 @@
 <?php
 // agency/create-package.php
-if (session_status() === PHP_SESSION_NONE) {
+if (session_status() === PHP_SESSION_NONE){
     session_start();
 }
 
@@ -8,7 +8,7 @@ if (session_status() === PHP_SESSION_NONE) {
 include __DIR__ . '/../Config/db.php';
 
 // 2. Security Gate Check
-if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || (strtolower($_SESSION['role']) !== 'agency')) {
+if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || (strtolower($_SESSION['role']) !== 'agency')){
     header('Location: ../login.php?error=unauthorized');
     exit;
 }
@@ -18,17 +18,16 @@ $message = '';
 $error = '';
 
 // 3. Process Package Creation Form Submission with File Attachment
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if ($_SERVER['REQUEST_METHOD'] === 'POST'){
     $country = trim($_POST['country'] ?? '');
     $price = trim($_POST['price'] ?? '');
     $description = trim($_POST['description'] ?? '');
     $type = $_POST['type'] ?? 'ALL_INCLUSIVE';
     $duration = intval($_POST['duration'] ?? 1);
-    
     $image_destination_path = null;
 
     // Check if an image file was selected and uploaded without structural errors
-    if (isset($_FILES['package_image']) && $_FILES['package_image']['error'] === UPLOAD_ERR_OK) {
+    if(isset($_FILES['package_image']) && $_FILES['package_image']['error'] === UPLOAD_ERR_OK){
         $file_tmp_path = $_FILES['package_image']['tmp_name'];
         $file_name = $_FILES['package_image']['name'];
         $file_extension = strtolower(pathinfo($file_name, PATHINFO_EXTENSION));
@@ -36,7 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Define clean, allowed extensions list
         $allowed_extensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
         
-        if (in_array($file_extension, $allowed_extensions)) {
+        if(in_array($file_extension, $allowed_extensions)){
             // Generate an absolute unique filename to avoid overriding duplicate file names
             $new_file_name = uniqid('pkg_', true) . '.' . $file_extension;
             
@@ -44,14 +43,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $upload_dir = __DIR__ . '/../public/uploads/';
             
             // Create folder automatically if it doesn't exist yet
-            if (!is_dir($upload_dir)) {
+            if(!is_dir($upload_dir)){
                 mkdir($upload_dir, 0777, true);
             }
             
             $dest_file_path = $upload_dir . $new_file_name;
             
             // Move file from temporary memory storage to your project uploads folder
-            if (move_uploaded_file($file_tmp_path, $dest_file_path)) {
+            if (move_uploaded_file($file_tmp_path, $dest_file_path)){
                 // Save this path pointing to our internal system folder
                 $image_destination_path = '../public/uploads/' . $new_file_name;
             } else {
@@ -66,24 +65,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($error)) {
         if (!empty($country) && !empty($price) && !empty($description) && !empty($duration)) {
             try {
-                $stmt = $pdo->prepare("INSERT INTO package (type, price, country, description, agencyID, image_path, duration) VALUES (:type, :price, :country, :description, :agency_id, :image_path, :duration)");
-                
-                $stmt->execute([
-                    'type'        => $type,
-                    'price'       => $price,
-                    'country'     => $country,
-                    'description' => $description,
-                    'agency_id'   => $user_id,
-                    'image_path'  => $image_destination_path,
-                    'duration'    => $duration
-                ]);
+                $stmt = $pdo->prepare("INSERT INTO package (type, price, country, description, agencyID, image_path, duration)
+                VALUES (:type, :price, :country, :description, :agency_id, :image_path, :duration)");
 
+                $stmt->execute(['type'=> $type,'price'=> $price,'country'=> $country,'description'=> $description,'agency_id'=>$user_id,'image_path'=>$image_destination_path,'duration'=>$duration]);
                 header('Location: dashboard.php?success=1');
                 exit;
-            } catch (PDOException $e) {
+            } 
+            catch (PDOException $e){
                 $error = "Database Error: " . $e->getMessage();
             }
-        } else {
+        } 
+        else{
             $error = "Please fill in all required form fields.";
         }
     }

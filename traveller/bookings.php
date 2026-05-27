@@ -3,14 +3,65 @@ session_start();
 include '../config/db.php';
 
 // Enforce strict access control 
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'traveller') {
+if (!isset($_SESSION['user_id']) || strtolower($_SESSION['role'] ?? '') !== 'traveller') {
     header('Location: ../login.php?error=unauthorized');
+    exit;
 }
 
 $user_id = $_SESSION['user_id'];
 
-// Retrieve historical data rows using secure parameterized execution queries [cite: 123, 128]
-$stmt = $pdo->prepare("SELECT b.bookingID as booking_id, b.bookingDate, p.description, p.country, p.price FROM booking b JOIN package p ON b.packageId = p.packID WHERE b.travellerId = :uid ORDER BY b.bookingId DESC;");
+// --- DIRECT BOOKING HANDLER ---
+// If the user clicked "Book Deal" on the dashboard, this catches it
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['package_id'])) {
+    $package_id = intval($_POST['package_id']);
+    
+    if ($package_id > 0){
+        try {
+            // Insert the booking securely
+            $insertStmt = $pdo->prepare("INSERT INTO booking (travellerId, packageId, bookingDate) VALUES (:user_id, :package_id, NOW())");
+            $insertStmt->execute(['user_id' => $user_id, 'package_id' => $package_id]);
+            
+            // Redirect to itself via GET to clear the POST data
+            // (This prevents accidental double-bookings if they refresh the page)
+            header("Location: bookings.php?success=1");
+            exit;
+        } catch (\PDOException $e) {
+            error_log("Direct Booking Bug: " . $e->getMessage());
+        }
+    }
+}
+
+// --- CANCELLATION HANDLER ---
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['cancel_booking_id'])) {
+    $cancel_id = intval($_POST['cancel_booking_id']);
+    
+    if ($cancel_id > 0) {
+        try {
+            // SECURITY: We check BOTH the bookingID and the travellerId 
+            // to prevent someone from maliciously deleting another user's trip.
+            $deleteStmt = $pdo->prepare("DELETE FROM booking WHERE bookingID = :bid AND travellerId = :uid");
+            $deleteStmt->execute([
+                'bid' => $cancel_id,
+                'uid' => $user_id
+            ]);
+            
+            header("Location: bookings.php?cancelled=1");
+            exit;
+        } catch (\PDOException $e) {
+            error_log("Cancellation Bug: " . $e->getMessage());
+        }
+    }
+}
+// ----------------------------
+// ------------------------------
+
+// Retrieve historical data rows using secure parameterized execution queries 
+$stmt = $pdo->prepare("SELECT b.bookingID as booking_id, b.bookingDate as booking_date, p.description as title, p.country as destination, p.price 
+FROM booking b 
+JOIN package p ON b.packageId = p.packID 
+WHERE b.travellerId = :uid 
+ORDER BY b.bookingID DESC;");
+
 $stmt->execute(['uid' => $user_id]);
 $my_bookings = $stmt->fetchAll();
 
@@ -29,9 +80,15 @@ include '../components/header.php';
                     <p style="margin: 0; color:#64748b;">📍 Destination: <?php echo htmlspecialchars($book['destination']); ?></p>
                     <small style="color: #94a3b8;">Processed on: <?php echo htmlspecialchars($book['booking_date']); ?></small>
                 </div>
-                <div style="text-align: right;">
+                <div style="text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
                     <span style="font-size: 1.3rem; font-weight: 700; color: #16a34a;">R<?php echo htmlspecialchars(number_format($book['price'], 2)); ?></span>
-                    <p style="margin:5px 0 0 0;"><span style="background: #dcfce7; color: #15803d; padding: 4px 8px; border-radius: 12px; font-size: 0.8rem; font-weight: 600;">Confirmed</span></p>
+                    <span style="background: #dcfce7; color: #15803d; padding: 4px 8px; border-radius: 12px; font-size: 0.8rem; font-weight: 600;">Confirmed</span>
+                        <form action="bookings.php" method="POST" style="margin: 0;" onsubmit="return confirm('Are you sure you want to cancel this trip? This action cannot be undone.');">
+                        <input type="hidden" name="cancel_booking_id" value="<?php echo $book['booking_id']; ?>">
+                        <button type="submit" style="background: white; color: #ef4444; border: 1px solid #ef4444; padding: 4px 10px; border-radius: 4px; font-weight: bold; font-size: 0.75rem; cursor: pointer; transition: 0.2s;">
+                        Cancel Booking
+                    </button>
+                 </form>
                 </div>
             </div>
         <?php endforeach; ?>

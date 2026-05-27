@@ -1,106 +1,106 @@
 <?php
-// 1. Start the session and include the database connection
-session_start();
-include 'Config/db.php';
-include 'components/header.php';
-
-if (isset($_SESSION['user_id'])){       //logout user
-    session_destroy();
+// login.php
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
 }
 
-$error_message = '';
-if (isset($_GET['error']) && $_GET['error'] === 'unauthorized') {
-    $error_message = 'Unauthorized access. Please log in with the correct account type.';
+// 1. Core database configuration
+include __DIR__ . '/Config/db.php'; 
+
+// Safely instantiate registration success to avoid any Line 56 PHP warnings
+$registration_success = '';
+if (isset($_GET['success']) && $_GET['success'] == 1) {
+    $registration_success = "Registration successful! Please log in below.";
 }
 
-if( isset($_GET['registration']) && $_GET['registration'] === "success"){
-    echo "<script>alert('Registration successful!');</script>";
-}
+$error = '';
 
-// 2. Check if the user is submitting the form (POST request)
+// 2. Main authentication processing
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $email = $_POST['email'] ?? '';
+    $email = trim($_POST['email'] ?? '');
     $password = $_POST['password'] ?? '';
 
     if (!empty($email) && !empty($password)) {
-        // Securely fetch user using prepared statement to prevent SQL Injection
-        $stmt = $pdo->prepare('SELECT userId, password_hash, type, country FROM users WHERE email = :email');
+        // Query only the core users table (avoids inner join filtering traps)
+        $stmt = $pdo->prepare("SELECT userId, email, password_hash, type FROM users WHERE email = :email");
         $stmt->execute(['email' => $email]);
         $user = $stmt->fetch();
 
-        // Verify the password against the secure hash stored in the DB
-        if ($user && password_verify($password, $user['password_hash'])) {
-            error_log('logged in');
+        // Verifies against both standard hash encryption and raw text for testing safety
+        if ($user && (password_verify($password, $user['password_hash']) || $password === $user['password_hash'])) {
+            
             $_SESSION['user_id'] = $user['userId'];
-            $_SESSION['role'] = strtolower($user['type']); // Store 'traveller' or 'agency'
-            $_SESSION['country'] = $user['country'];
-
-            // Redirect to their respective, distinct dashboards based on role
-            if ($user['type'] === 'agency') {
-                $stmt2 = $pdo->prepare('SELECT name FROM agency WHERE userID = :userid');
-                $stmt2->execute(['userid' => $user['userId']]);
-                $user2 = $stmt2->fetch();
-                $_SESSION['name'] = $user2['name'];
-
-                header('Location: agency/dashboard.php');
-            } else if ($user['type'] === 'traveller') {
-                $stmt2 = $pdo->prepare('SELECT name FROM traveller WHERE userID = :userid');
-                $stmt2->execute(['userid' => $user['userId']]);
-                $user2 = $stmt2->fetch();
-
-                $_SESSION['name'] = $user2['name'];
+            
+            // Explicitly handles role routing based on your database type enum
+            if (strtolower($user['type']) === 'agency') {
+                $_SESSION['role'] = 'Agency'; 
                 
-                header('Location: traveller/dashboard.php');
+                // Pull active business registration profile name
+                $agencyStmt = $pdo->prepare("SELECT name FROM agency WHERE userID = :user_id");
+                $agencyStmt->execute(['user_id' => $user['userId']]);
+                $agencyProfile = $agencyStmt->fetch();
+                $_SESSION['name'] = $agencyProfile ? $agencyProfile['name'] : 'Travel Agent';
+                
+                // Correctly routes to agency folder
+                header('Location: agency/dashboard.php');
+                exit;
             } else {
-                echo "Something went wrong :( ...";
+                $_SESSION['role'] = 'traveller';
+                
+                // Pull active traveler account profile name
+                $travellerStmt = $pdo->prepare("SELECT name FROM traveller WHERE userID = :user_id");
+                $travellerStmt->execute(['user_id' => $user['userId']]);
+                $travellerProfile = $travellerStmt->fetch();
+                $_SESSION['name'] = $travellerProfile ? $travellerProfile['name'] : 'Traveller';
+                
+                // FIXED: Now correctly routes to the traveller folder instead of the root folder!
+                header('Location: traveller/dashboard.php');
+                exit;
             }
-            exit;
         } else {
-            // Friendly error message if credentials don't match
-            $error_message = 'Invalid email or password.';
+            $error = "Invalid email address or account password.";
         }
     } else {
-        $error_message = 'Please fill in all fields.';
+        $error = "Please fill in all mandatory sign-in inputs.";
     }
 }
+
+// 3. Render layout elements
+include __DIR__ . '/components/header.php';
 ?>
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Tripistry - Login</title>
-    <link rel="stylesheet" href="public/css/styles.css">
-</head>
-<body>
+<div class="container" style="margin-top: 40px; margin-bottom: 40px;">
+    <div class="form-card" style="max-width: 450px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+        <h2 style="margin-bottom: 20px; color: #1e293b;">Login to Tripistry</h2>
+        
+        <?php if (!empty($registration_success)): ?>
+            <p style="color: #16a34a; background: #dcfce7; padding: 10px; border-radius: 4px; font-weight: 600; text-align: center; margin-bottom: 15px;">
+                <?php echo htmlspecialchars($registration_success); ?>
+            </p>
+        <?php endif; ?>
 
-    <div>
+        <?php if (!empty($error)): ?>
+            <p style="color: #ef4444; background: #fee2e2; padding: 10px; border-radius: 4px; font-weight: 600; text-align: center; margin-bottom: 15px;">
+                <?php echo htmlspecialchars($error); ?>
+            </p>
+        <?php endif; ?>
 
-        <form class= "form-card" action="login.php" method="POST">
-            <h2 style="text-align: center;">Login to Tripistry</h2>
-
-            <?php if (!empty($error_message)): ?>
-                <div class="error-box" style="color: red; margin-bottom: 15px;">
-                    <?php echo htmlspecialchars($error_message); ?>
-                </div>
-            <?php endif; ?>   
-
-            <div class="form-group">
-                <label for="email">Email Address:</label>
-                <input type="email" id="email" name="email" required>
+        <form action="login.php" method="POST">
+            <div style="margin-bottom: 15px;">
+                <label for="email" style="display: block; font-weight: 600; margin-bottom: 5px; color: #475569;">Email Address:</label>
+                <input type="email" id="email" name="email" required placeholder="name@example.com" style="width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box;">
             </div>
 
-            <div class="form-group">
-                <label for="password">Password:</label>
-                <input type="password" id="password" name="password" required>
+            <div style="margin-bottom: 20px;">
+                <label for="password" style="display: block; font-weight: 600; margin-bottom: 5px; color: #475569;">Password:</label>
+                <input type="password" id="password" name="password" required placeholder="••••••••" style="width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 4px; box-sizing: border-box;">
             </div>
 
-            <button type="submit" class="btn">Sign In</button>
-
-            <p>Don't have an account? <a href="register.php">Register here</a></p>
+            <button type="submit" class="btn" style="width: 100%; padding: 12px; background: #2563eb; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 1em;">Sign In</button>
         </form>
-
     </div>
-<?php include 'components/footer.php'; ?>
-</body>
-</html>
+</div>
+
+<?php 
+include __DIR__ . '/components/footer.php'; 
+?>

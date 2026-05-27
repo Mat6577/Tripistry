@@ -1,75 +1,153 @@
 <?php
-session_start();
-include '../config/db.php';
+// traveller/dashboard.php
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
-// Enforce strict interface boundaries [cite: 30]
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'traveller') {
+// 1. Core architecture links
+include __DIR__ . '/../Config/db.php';
+
+// 2. Strict protection gateway
+if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || (strtolower($_SESSION['role']) !== 'traveller')) {
     header('Location: ../login.php?error=unauthorized');
     exit;
 }
 
+$user_id = $_SESSION['user_id'];
+$user_name = 'Traveller';
 
-$sql = "SELECT * FROM package WHERE 1=1";
-$params = [];
+try {
+    $userStmt = $pdo->prepare("SELECT name FROM traveller WHERE userID = :user_id");
+    $userStmt->execute(['user_id' => $user_id]);
+    $travellerProfile = $userStmt->fetch();
+    if ($travellerProfile && !empty($travellerProfile['name'])) {
+        $user_name = $travellerProfile['name'];
+    }
+} catch(PDOException $e){}
 
-// Apply filtering parameters safely if they are provided [cite: 127]
-if (!empty($_GET['destination'])) {
-    $sql .= " AND destination LIKE :destination";
-    $params['destination'] = '%' . $_GET['destination'] . '%';
+// 3. Fetch all packages JOINED with the specific agency's phone number
+try {
+    // We join 'phonenumber' on the 'agencyID' found in the 'package' table
+    $stmt = $pdo->query("
+        SELECT 
+            p.packID, p.price, p.description, p.country, p.image_path, p.type, p.duration, 
+            pn.phoneNumber as agency_phone,
+            IFNULL(AVG(r.rating), 0) as avg_rating, 
+            COUNT(r.rating) as review_count 
+        FROM package p 
+        LEFT JOIN review r ON p.packID = r.packageID 
+        LEFT JOIN phonenumber pn ON p.agencyID = pn.userID
+        GROUP BY p.packID 
+        ORDER BY p.packID DESC
+    ");
+    $packages = $stmt->fetchAll();
+} 
+catch(PDOException $e){
+    die("Database Error: " . $e->getMessage());
 }
-if (!empty($_GET['max_price'])) {
-    $sql .= " AND price <= :max_price";
-    $params['max_price'] = $_GET['max_price'];
+
+// 4. Smart Path Resolver Function
+function resolve_dashboard_image($path){
+    if(empty($path)) return '';
+    if(stripos($path, 'http://') === 0 || stripos($path, 'https://') === 0) return $path;
+    $path = str_replace('\\', '/', $path);
+    if(strpos($path, '../') === 0) return $path;
+    if (strpos($path, 'public/') === 0) return '../' . $path;
+    if (strpos($path, 'uploads/') === 0) return '../public/' . $path;
+    return '../public/uploads/' . ltrim($path, '/');
 }
 
-// Implement sorting mechanics [cite: 127]
-$sort = $_GET['sort'] ?? 'price_asc';
-if ($sort === 'rating_desc') {
-    $sql .= " ORDER BY average_rating DESC";
-} else {
-    $sql .= " ORDER BY price ASC";
-}
-
-$stmt = $pdo->prepare($sql);
-$stmt->execute($params);
-$packages = $stmt->fetchAll();
-
-include '../components/header.php';
+include __DIR__ . '/../components/header.php';
 ?>
-<h2>Traveller Dashboard - Explore Packages</h2>
 
-<form method="GET" action="dashboard.php" class="filter-form">
-    <input type="text" name="destination" placeholder="Search Destination..." value="<?php echo htmlspecialchars($_GET['destination'] ?? ''); ?>">
-    <input type="number" name="max_price" placeholder="Max Budget (ZAR)" value="<?php echo htmlspecialchars($_GET['max_price'] ?? ''); ?>">
-    
-    <select name="sort">
-        <option value="price_asc" <?php echo ($sort === 'price_asc') ? 'selected' : ''; ?>>Price: Low to High</option>
-        <option value="rating_desc" <?php echo ($sort === 'rating_desc') ? 'selected' : ''; ?>>Top Rated</option>
-    </select>
-    <button type="submit" class="btn">Filter</button>
-</form>
+<div class="container" style="margin-top: 30px; max-width: 1200px; margin-left: auto; margin-right: auto; padding: 0 15px; margin-bottom: 50px;">
+    <div style="margin-bottom: 30px;">
+        <h2 style="color: #0f172a; margin: 0;">Welcome back, <?php echo htmlspecialchars($user_name); ?>!</h2>
+        <p style="color: #64748b; margin: 5px 0 0 0;">Explore our latest tailored vacation packages and destinations.</p>
+    </div>
 
-<div class="package-grid">
-    <?php if (count($packages) > 0): ?>
-        <?php foreach ($packages as $pkg): ?>
-            <div class="package-card">
-                <h3><?php echo htmlspecialchars($pkg['description']); ?></h3>
-                <p>📍 <strong>Destination:</strong> <?php echo htmlspecialchars($pkg['country']); ?></p>
-                <p>💵 <strong>Price:</strong> R<?php echo htmlspecialchars($pkg['price']); ?></p>
-                <?php 
-                    $s = $pdo->prepare('SELECT AVG(rating) as average_rating FROM review WHERE packageID = :pid;');
-                    $s->execute(['pid' => $pkg['packID']]);
-                    $result = $s->fetch();
-                    $average_rating = $result['average_rating'];
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 25px;">
+        <?php if (count($packages) > 0): ?>
+            <?php foreach ($packages as $pkg): ?>
+                <div class="package-card" style="background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; display: flex; flex-direction: column;">
+                    
+                    <div style="width: 100%; height: 210px; background: #f1f5f9; position: relative;">
+                        <?php 
+                        $resolved_image = resolve_dashboard_image($pkg['image_path']);
+                        if (!empty($resolved_image)): 
+                        ?>
+                            <img src="<?php echo htmlspecialchars($resolved_image); ?>" alt="Destination Image" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+                        <?php else: ?>
+                            <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: #94a3b8; background: #f8fafc; font-weight: bold;">
+                                🌅 No Image Available
+                            </div>
+                        <?php endif; ?>
+                        
+                        <span style="position: absolute; top: 12px; right: 12px; background: rgba(15, 23, 42, 0.85); color: white; padding: 4px 12px; border-radius: 20px; font-size: 0.75em; font-weight: bold;">
+                            ⏱️ <?php echo htmlspecialchars($pkg['duration']); ?> Days
+                        </span>
+                    </div>
 
-                ?>
-                <p>⭐ <strong>Rating:</strong> <?php echo htmlspecialchars($average_rating === NULL? "No reviews yet" : $average_rating); ?></p>
-                <a href="package-view.php?id=<?php echo $pkg['packID']; ?>" class="btn">View Details</a>
+                    <div style="padding: 20px; flex-grow: 1; display: flex; flex-direction: column; justify-content: space-between;">
+                        <div style="margin-bottom: 20px;">
+                            <h3 style="margin: 0 0 8px 0; color: #0f172a;">📍 <?php echo htmlspecialchars($pkg['country']); ?></h3>
+                            
+                            <div style="margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
+                                <span style="color: #eab308; letter-spacing: 2px;">
+                                    <?php 
+                                    $starCount = round($pkg['avg_rating']);
+                                    echo str_repeat('★', $starCount) . str_repeat('☆', 5 - $starCount); 
+                                    ?>
+                                </span>
+                                <span style="color: #64748b; font-size: 0.8em; font-weight: 600;">
+                                    <?php if ($pkg['review_count'] > 0): ?>
+                                        <?php echo number_format($pkg['avg_rating'], 1); ?> (<?php echo $pkg['review_count']; ?> reviews)
+                                    <?php else: ?>
+                                        <span style="color: #2563eb;">New!</span>
+                                    <?php endif; ?>
+                                </span>
+                            </div>
+
+                            <span style="display: inline-block; background: #f1f5f9; color: #475569; font-size: 0.75em; font-weight: bold; padding: 3px 8px; border-radius: 4px; margin-bottom: 12px;">
+                                <?php echo htmlspecialchars(str_replace('_', ' ', $pkg['type'])); ?>
+                            </span>
+
+                            <p style="color: #475569; font-size: 0.9em; margin: 0 0 15px 0; line-height: 1.5;">
+                                <?php echo htmlspecialchars($pkg['description']); ?>
+                            </p>
+
+                            <?php if (!empty($pkg['agency_phone'])): ?>
+                                <div style="background: #f0fdf4; border: 1px solid #bbf7d0; padding: 10px; border-radius: 6px; margin-bottom: 15px;">
+                                    <span style="display: block; font-size: 0.7em; color: #166534; font-weight: bold; margin-bottom: 2px;">Need info? Call Agent:</span>
+                                    <a href="tel:<?php echo htmlspecialchars($pkg['agency_phone']); ?>" style="color: #15803d; font-weight: bold; text-decoration: none; font-size: 0.95em;">
+                                        📞 <?php echo htmlspecialchars($pkg['agency_phone']); ?>
+                                    </a>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+
+                        <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #f1f5f9; padding-top: 15px;">
+                            <div>
+                                <span style="display: block; font-size: 0.75em; color: #64748b; font-weight: bold;">Total Price</span>
+                                <span style="font-size: 1.2em; font-weight: bold; color: #16a34a;">R<?php echo number_format($pkg['price'], 2); ?></span>
+                            </div>
+                            
+                            <form action="bookings.php" method="POST" style="margin: 0;">
+                                <input type="hidden" name="package_id" value="<?php echo $pkg['packID']; ?>">
+                                <button type="submit" style="background: #2563eb; color: white; padding: 8px 15px; border-radius: 4px; border: none; font-weight: bold; font-size: 0.9em; cursor: pointer;">
+                                     Book Deal →
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+        <?php else: ?>
+            <div style="grid-column: 1 / -1; padding: 50px; text-align: center; color: #64748b; background: white; border-radius: 8px; border: 1px solid #e2e8f0;">
+                <h3>No vacation packages available right now.</h3>
             </div>
-        <?php endforeach; ?>
-    <?php else: ?>
-        <p>No holiday packages matched your criteria. Try adjusting your filter choices.</p>
-    <?php endif; ?>
+        <?php endif; ?>
+    </div>
 </div>
 
-<?php include '../components/footer.php'; ?>
+<?php include __DIR__ . '/../components/footer.php'; ?>
